@@ -1,12 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import anthropic
+from openai import OpenAI
 import os
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 @app.route("/")
 def home():
@@ -23,13 +23,13 @@ def chat():
     if not prompt:
         return jsonify({"error": "No prompt provided"}), 400
 
-    message = client.messages.create(
-        model="claude-sonnet-4-20250514",
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )
 
-    return jsonify({"response": message.content[0].text})
+    return jsonify({"response": response.choices[0].message.content})
 
 if __name__ == "__main__":
     app.run(debug=True)
