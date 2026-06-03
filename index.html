@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CineScope — AI Film Discovery</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0a;
+    --deep: #111118;
+    --card: #16161f;
+    --border: #ffffff12;
+    --gold: #c9a84c;
+    --gold-light: #e8c97a;
+    --cream: #f5efe0;
+    --muted: #888899;
+    --red: #e04444;
+    --text: #f0eee8;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Film grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.2rem 3rem;
+    background: linear-gradient(to bottom, rgba(10,10,10,0.98), transparent);
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s;
+  }
+  nav.scrolled { border-bottom-color: var(--border); }
+
+  .nav-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    color: var(--gold);
+    text-decoration: none;
+  }
+  .nav-logo span { color: var(--cream); }
+
+  .nav-links { display: flex; gap: 2.5rem; list-style: none; }
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--gold); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 40%, rgba(201,168,76,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 20% 80%, rgba(224,68,68,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 20%, rgba(100,80,200,0.05) 0%, transparent 60%);
+  }
+
+  /* Film strip decoration */
+  .film-strip {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    opacity: 0.15;
+  }
+  .film-strip-r {
+    position: absolute;
+    right: 0; top: 0; bottom: 0;
+    width: 3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    overflow: hidden;
+    opacity: 0.15;
+  }
+  .film-hole {
+    width: 100%;
+    aspect-ratio: 1;
+    border: 2px solid var(--gold);
+    margin: 0.5rem auto;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .hero-eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.2s forwards;
+  }
+
+  .hero-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(4rem, 10vw, 8rem);
+    font-weight: 900;
+    line-height: 0.9;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.4s forwards;
+  }
+  .hero-title .accent { color: var(--gold); font-style: italic; }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 500px;
+    line-height: 1.7;
+    margin-bottom: 3rem;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.6s forwards;
+  }
+
+  .hero-cta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    opacity: 0;
+    animation: fadeUp 0.8s 0.8s forwards;
+  }
+
+  .btn-primary {
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    padding: 0.9rem 2.2rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .btn-primary:hover { background: var(--gold-light); transform: translateY(-2px); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 0.9rem 2.2rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* ── FEATURES NAV ── */
+  .features-nav {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    background: var(--deep);
+    position: sticky;
+    top: 60px;
+    z-index: 50;
+  }
+
+  .feat-tab {
+    padding: 1.1rem 2.5rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .feat-tab:hover { color: var(--text); }
+  .feat-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+  /* ── SECTIONS ── */
+  .section {
+    display: none;
+    padding: 5rem 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+    animation: fadeUp 0.5s forwards;
+  }
+  .section.active { display: block; }
+
+  .section-header {
+    margin-bottom: 3rem;
+  }
+
+  .section-tag {
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.8rem;
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 1rem;
+  }
+  .section-title em { color: var(--gold); font-style: italic; }
+
+  .section-desc {
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    max-width: 580px;
+  }
+
+  /* ── INPUT AREA ── */
+  .input-area {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.6rem;
+  }
+
+  input[type="text"], textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 300;
+    padding: 0.85rem 1rem;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 1.2rem;
+    resize: none;
+  }
+  input[type="text"]:focus, textarea:focus { border-color: var(--gold); }
+  input[type="text"]::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.5; }
+
+  .input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  /* ── OUTPUT AREA ── */
+  .output-area { min-height: 100px; }
+
+  .loading {
+    display: none;
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted);
+  }
+  .loading.show { display: block; }
+
+  .loading-reel {
+    font-size: 3rem;
+    animation: spin 2s linear infinite;
+    display: block;
+    margin-bottom: 1rem;
+  }
+
+  .loading-text {
+    font-size: 0.8rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  /* ── MOVIE CARDS ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+
+  .movie-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    transition: all 0.3s;
+    animation: fadeUp 0.5s forwards;
+    opacity: 0;
+  }
+  .movie-card:hover { border-color: var(--gold); transform: translateY(-4px); }
+
+  .card-poster {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+    background: #1a1a24;
+  }
+  .card-poster-placeholder {
+    width: 100%;
+    height: 200px;
+    background: linear-gradient(135deg, #1a1a24, #16161f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: var(--border);
+  }
+
+  .card-body { padding: 1.2rem; }
+  .card-num {
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.4rem;
+  }
+  .card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+    line-height: 1.2;
+  }
+  .card-meta {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 0.8rem;
+  }
+  .card-rating {
+    display: inline-block;
+    background: rgba(201,168,76,0.12);
+    color: var(--gold);
+    font-size: 0.78rem;
+    padding: 0.2rem 0.6rem;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.8rem;
+  }
+  .card-blurb {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* ── DOSSIER ── */
+  .dossier {
+    background: var(--card);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    margin-top: 2rem;
+    animation: fadeUp 0.5s forwards;
+  }
+
+  .dossier-header {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dossier-poster {
+    width: 180px;
+    height: 270px;
+    object-fit: cover;
+    display: block;
+  }
+  .dossier-poster-ph {
+    width: 180px;
+    height: 270px;
+    background: #1a1a24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: var(--border);
+  }
+
+  .dossier-meta {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+  .dossier-tag {
+    font-size: 0.65rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.5rem;
+  }
+  .dossier-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+  }
+  .dossier-sub {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .dossier-stats {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .dossier-stat { }
+  .dossier-stat-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    color: var(--gold);
+    font-weight: 700;
+  }
+  .dossier-stat-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  .dossier-body { padding: 2rem; }
+
+  .analysis-section {
+    margin-bottom: 2rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .analysis-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+  .analysis-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .analysis-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .analysis-text {
+    font-size: 0.95rem;
+    line-height: 1.8;
+    color: var(--text);
+    font-weight: 300;
+  }
+
+  /* ── WATCHLIST ── */
+  .watchlist-header {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    padding: 1.5rem 2rem;
+    margin-top: 2rem;
+  }
+  .watchlist-list-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 0.4rem;
+  }
+  .watchlist-list-desc { color: var(--muted); font-size: 0.9rem; }
+
+  .watchlist-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-top: none;
+    display: grid;
+    grid-template-columns: 60px 80px 1fr;
+    gap: 0;
+    overflow: hidden;
+    transition: all 0.2s;
+    animation: fadeUp 0.4s forwards;
+    opacity: 0;
+  }
+  .watchlist-item:hover { border-color: var(--gold); }
+
+  .watchlist-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--gold);
+    border-right: 1px solid var(--border);
+    font-style: italic;
+  }
+
+  .watchlist-thumb {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-right: 1px solid var(--border);
+  }
+  .watchlist-thumb-ph {
+    width: 80px;
+    height: 80px;
+    background: #1a1a24;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--border);
+    font-size: 1.5rem;
+  }
+
+  .watchlist-info { padding: 1rem 1.2rem; }
+  .watchlist-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+  }
+  .watchlist-year { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.4rem; }
+  .watchlist-reason { font-size: 0.82rem; color: var(--muted); line-height: 1.5; }
+
+  /* ── ERROR ── */
+  .error-box {
+    background: rgba(224,68,68,0.08);
+    border: 1px solid rgba(224,68,68,0.3);
+    padding: 1.2rem 1.5rem;
+    color: #f08080;
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    display: none;
+  }
+  .error-box.show { display: block; }
+
+  /* ── SEED TAGS ── */
+  .seed-input-area { margin-bottom: 1.2rem; }
+  .seed-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+    min-height: 1rem;
+  }
+  .seed-tag {
+    background: rgba(201,168,76,0.12);
+    border: 1px solid rgba(201,168,76,0.3);
+    color: var(--gold);
+    font-size: 0.8rem;
+    padding: 0.3rem 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  .seed-tag:hover { background: rgba(201,168,76,0.2); }
+  .seed-remove { font-size: 1rem; line-height: 1; }
+
+  .seed-row { display: flex; gap: 0.5rem; }
+  .seed-row input { margin-bottom: 0; flex: 1; }
+  .seed-add {
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    padding: 0 1rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+  }
+  .seed-add:hover { background: var(--gold-light); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    width: 3rem;
+    height: 1px;
+    background: var(--gold);
+    margin: 1.5rem 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 3rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+  footer span { color: var(--gold); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  .card-delay-1 { animation-delay: 0.1s; }
+  .card-delay-2 { animation-delay: 0.2s; }
+  .card-delay-3 { animation-delay: 0.3s; }
+  .card-delay-4 { animation-delay: 0.4s; }
+  .card-delay-5 { animation-delay: 0.5s; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--black); }
+  ::-webkit-scrollbar-thumb { background: var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="navbar">
+  <a class="nav-logo" href="#"><span>Cine</span>Scope</a>
+  <ul class="nav-links">
+    <li><a href="#" onclick="showSection('mood')">Mood Finder</a></li>
+    <li><a href="#" onclick="showSection('deep')">Deep Dive</a></li>
+    <li><a href="#" onclick="showSection('watchlist')">Watchlist</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="home">
+  <div class="hero-bg"></div>
+  <div class="film-strip" id="filmL"></div>
+  <div class="film-strip-r" id="filmR"></div>
+
+  <p class="hero-eyebrow">AI-Powered Film Discovery</p>
+  <h1 class="hero-title">Cine<span class="accent">Scope</span></h1>
+  <p class="hero-sub">Your cinephile companion. Discover films by mood, dissect masterpieces, and build the watchlist you've always dreamed of.</p>
+  <div class="hero-cta">
+    <a class="btn-primary" href="#features" onclick="showSection('mood')">Find a Film</a>
+    <a class="btn-ghost" href="#features" onclick="showSection('deep')">Analyze a Movie</a>
+  </div>
+</section>
+
+<!-- FEATURE TABS -->
+<div class="features-nav" id="features">
+  <button class="feat-tab active" onclick="showSection('mood')" id="tab-mood">🎭 Mood Recommender</button>
+  <button class="feat-tab" onclick="showSection('deep')" id="tab-deep">🔍 Deep Dive</button>
+  <button class="feat-tab" onclick="showSection('watchlist')" id="tab-watchlist">📋 Watchlist Builder</button>
+</div>
+
+<!-- ═══════════ FEATURE 1: MOOD RECOMMENDER ═══════════ -->
+<div class="section active" id="section-mood">
+  <div class="section-header">
+    <p class="section-tag">Feature 01</p>
+    <h2 class="section-title">What's your <em>mood?</em></h2>
+    <div class="divider"></div>
+    <p class="section-desc">Describe a vibe, a feeling, a craving — and CineScope will find films from 941,000+ titles that match, then write Letterboxd-style blurbs for each.</p>
+  </div>
+
+  <div class="input-area">
+    <label>Describe your mood or vibe</label>
+    <textarea id="mood-input" rows="3" placeholder="e.g. cozy rainy day, something warm and comforting… or a mind-bending thriller that'll keep me up at night…"></textarea>
+    <button class="btn-primary" onclick="runMoodRecommender()" style="width:100%">Find My Films →</button>
+  </div>
+
+  <div class="error-box" id="mood-error"></div>
+
+  <div class="loading" id="mood-loading">
+    <span class="loading-reel">🎞️</span>
+    <p class="loading-text">Searching the archives…</p>
+  </div>
+
+  <div class="output-area" id="mood-output"></div>
+</div>
+
+<!-- ═══════════ FEATURE 2: DEEP DIVE ═══════════ -->
+<div class="section" id="section-deep">
+  <div class="section-header">
+    <p class="section-tag">Feature 02</p>
+    <h2 class="section-title">The <em>Deep Dive</em></h2>
+    <div class="divider"></div>
+    <p class="section-desc">Enter any film title and receive a full cinephile dossier — ratings analysis, thematic breakdown, directorial craft, and who it's really for.</p>
+  </div>
+
+  <div class="input-area">
+    <label>Movie Title</label>
+    <input type="text" id="deep-input" placeholder="e.g. Parasite, Spirited Away, The Godfather…" onkeydown="if(event.key==='Enter') runDeepDive()">
+    <button class="btn-primary" onclick="runDeepDive()" style="width:100%">Analyze This Film →</button>
+  </div>
+
+  <div class="error-box" id="deep-error"></div>
+
+  <div class="loading" id="deep-loading">
+    <span class="loading-reel">🎞️</span>
+    <p class="loading-text">Consulting the archives…</p>
+  </div>
+
+  <div class="output-area" id="deep-output"></div>
+</div>
+
+<!-- ═══════════ FEATURE 3: WATCHLIST BUILDER ═══════════ -->
+<div class="section" id="section-watchlist">
+  <div class="section-header">
+    <p class="section-tag">Feature 03</p>
+    <h2 class="section-title">Build your <em>Watchlist</em></h2>
+    <div class="divider"></div>
+    <p class="section-desc">Tell us what you've loved. Set a goal. CineScope will curate a themed watchlist of 10 films just for you — ready to copy straight into Letterboxd.</p>
+  </div>
+
+  <div class="input-area">
+    <div class="seed-input-area">
+      <label>Films you loved (add 2–5)</label>
+      <div class="seed-tags" id="seed-tags"></div>
+      <div class="seed-row">
+        <input type="text" id="seed-input" placeholder="Type a film title and press Add…" onkeydown="if(event.key==='Enter') addSeed()">
+        <button class="seed-add" onclick="addSeed()">+ Add</button>
+      </div>
+    </div>
+    <label>Your goal</label>
+    <input type="text" id="goal-input" placeholder="e.g. explore international arthouse cinema, find more hidden gems like these…">
+    <button class="btn-primary" onclick="runWatchlist()" style="width:100%; margin-top:0.4rem">Build My Watchlist →</button>
+  </div>
+
+  <div class="error-box" id="watchlist-error"></div>
+
+  <div class="loading" id="watchlist-loading">
+    <span class="loading-reel">🎞️</span>
+    <p class="loading-text">Curating your list…</p>
+  </div>
+
+  <div class="output-area" id="watchlist-output"></div>
+</div>
+
+<footer>
+  <p>Built with the <span>Letterboxd Dataset</span> · TMDB API · OpenAI GPT-4o-mini</p>
+  <p style="margin-top:0.4rem; opacity:0.5;">941,597 films. Infinite possibilities.</p>
+</footer>
+
+<script>
+// ── Film strip decoration ──
+function buildStrips() {
+  const l = document.getElementById('filmL');
+  const r = document.getElementById('filmR');
+  for (let i = 0; i < 40; i++) {
+    const h1 = document.createElement('div');
+    h1.className = 'film-hole';
+    l.appendChild(h1);
+    const h2 = document.createElement('div');
+    h2.className = 'film-hole';
+    r.appendChild(h2);
+  }
+}
+buildStrips();
+
+// ── Navbar scroll effect ──
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// ── Tab switching ──
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.feat-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── API call helper ──
+async function callClaude(prompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(data.error.message);
+  return data.content[0].text;
+}
+
+// ── TMDB helper ──
+async function fetchPoster(title, year) {
+  // Returns a placeholder since TMDB needs server-side key handling
+  return null;
+}
+
+// ── FEATURE 1: MOOD RECOMMENDER ──
+async function runMoodRecommender() {
+  const mood = document.getElementById('mood-input').value.trim();
+  if (!mood) return;
+
+  const err = document.getElementById('mood-error');
+  const loading = document.getElementById('mood-loading');
+  const output = document.getElementById('mood-output');
+
+  err.classList.remove('show');
+  output.innerHTML = '';
+  loading.classList.add('show');
+
+  try {
+    const prompt = `You are CineScope, an AI film discovery engine with knowledge of 941,000+ films from the Letterboxd dataset.
+
+A user wants to watch a film with this vibe: "${mood}"
+
+Return ONLY a valid JSON array of exactly 5 film recommendations. No explanation, no markdown, no extra text.
+
+Format:
+[
+  {
+    "title": "Film Title",
+    "year": 2019,
+    "rating": 4.56,
+    "genre": "Drama, Thriller",
+    "director": "Director Name",
+    "blurb": "A witty, specific 2-sentence Letterboxd-style recommendation tailored to the user's mood. Sound like a passionate cinephile. Be clever and specific."
+  }
+]
+
+Pick films that genuinely match the mood. Include a mix of eras. Rating should be the realistic Letterboxd average (1-5 scale).`;
+
+    const raw = await callClaude(prompt);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const films = JSON.parse(clean);
+
+    loading.classList.remove('show');
+
+    const grid = document.createElement('div');
+    grid.className = 'cards-grid';
+
+    films.forEach((film, i) => {
+      const card = document.createElement('div');
+      card.className = `movie-card card-delay-${i + 1}`;
+      card.innerHTML = `
+        <div class="card-poster-placeholder">🎬</div>
+        <div class="card-body">
+          <div class="card-num">Pick #${i + 1}</div>
+          <div class="card-title">${film.title}</div>
+          <div class="card-meta">${film.year} · ${film.director || 'Unknown'}</div>
+          <div class="card-rating">⭐ ${film.rating} / 5</div>
+          <div class="card-blurb">${film.blurb}</div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    output.appendChild(grid);
+  } catch (e) {
+    loading.classList.remove('show');
+    err.textContent = 'Something went wrong: ' + e.message;
+    err.classList.add('show');
+  }
+}
+
+// ── FEATURE 2: DEEP DIVE ──
+async function runDeepDive() {
+  const title = document.getElementById('deep-input').value.trim();
+  if (!title) return;
+
+  const err = document.getElementById('deep-error');
+  const loading = document.getElementById('deep-loading');
+  const output = document.getElementById('deep-output');
+
+  err.classList.remove('show');
+  output.innerHTML = '';
+  loading.classList.add('show');
+
+  try {
+    const prompt = `You are CineScope, an expert film analyst with deep knowledge of cinema history and the Letterboxd community.
+
+Analyze this film: "${title}"
+
+Return ONLY valid JSON, no markdown, no explanation:
+{
+  "title": "Exact Film Title",
+  "year": 2019,
+  "director": "Director Name",
+  "runtime": 132,
+  "genres": "Drama, Thriller",
+  "letterboxd_rating": 4.56,
+  "tmdb_rating": 8.5,
+  "percentile": 99,
+  "the_film": "2 sentences: what it is and its place in cinema history.",
+  "by_the_numbers": "2-3 sentences interpreting the ratings. Compare to genre peers. Is it underrated/overrated?",
+  "themes_craft": "2-3 sentences on key themes, directorial style, what makes it cinematically distinctive.",
+  "who_its_for": "2 sentences describing the ideal viewer profile with specificity."
+}
+
+Be precise, witty, and insightful. No generic praise.`;
+
+    const raw = await callClaude(prompt);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const film = JSON.parse(clean);
+
+    loading.classList.remove('show');
+
+    const dossier = document.createElement('div');
+    dossier.className = 'dossier';
+    dossier.innerHTML = `
+      <div class="dossier-header">
+        <div class="dossier-poster-ph">🎬</div>
+        <div class="dossier-meta">
+          <div class="dossier-tag">Cinescope Dossier</div>
+          <div class="dossier-title">${film.title}</div>
+          <div class="dossier-sub">${film.year} · ${film.director} · ${film.runtime} min</div>
+          <div class="dossier-sub" style="margin-bottom:1rem">${film.genres}</div>
+          <div class="dossier-stats">
+            <div class="dossier-stat">
+              <div class="dossier-stat-val">${film.letterboxd_rating}</div>
+              <div class="dossier-stat-label">Letterboxd</div>
+            </div>
+            <div class="dossier-stat">
+              <div class="dossier-stat-val">${film.tmdb_rating}</div>
+              <div class="dossier-stat-label">TMDB</div>
+            </div>
+            <div class="dossier-stat">
+              <div class="dossier-stat-val">${film.percentile}th</div>
+              <div class="dossier-stat-label">Percentile</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dossier-body">
+        <div class="analysis-section">
+          <div class="analysis-label">🎬 The Film</div>
+          <p class="analysis-text">${film.the_film}</p>
+        </div>
+        <div class="analysis-section">
+          <div class="analysis-label">📊 By the Numbers</div>
+          <p class="analysis-text">${film.by_the_numbers}</p>
+        </div>
+        <div class="analysis-section">
+          <div class="analysis-label">🎭 Themes & Craft</div>
+          <p class="analysis-text">${film.themes_craft}</p>
+        </div>
+        <div class="analysis-section">
+          <div class="analysis-label">👤 Who It's For</div>
+          <p class="analysis-text">${film.who_its_for}</p>
+        </div>
+      </div>
+    `;
+    output.appendChild(dossier);
+  } catch (e) {
+    loading.classList.remove('show');
+    err.textContent = 'Something went wrong: ' + e.message;
+    err.classList.add('show');
+  }
+}
+
+// ── FEATURE 3: WATCHLIST BUILDER ──
+let seeds = [];
+
+function addSeed() {
+  const input = document.getElementById('seed-input');
+  const val = input.value.trim();
+  if (!val || seeds.includes(val) || seeds.length >= 5) return;
+  seeds.push(val);
+  renderSeeds();
+  input.value = '';
+}
+
+function removeSeed(title) {
+  seeds = seeds.filter(s => s !== title);
+  renderSeeds();
+}
+
+function renderSeeds() {
+  const container = document.getElementById('seed-tags');
+  container.innerHTML = '';
+  seeds.forEach(s => {
+    const tag = document.createElement('div');
+    tag.className = 'seed-tag';
+    tag.innerHTML = `${s} <span class="seed-remove" onclick="removeSeed('${s.replace(/'/g, "\\'")}')">×</span>`;
+    container.appendChild(tag);
+  });
+}
+
+async function runWatchlist() {
+  const goal = document.getElementById('goal-input').value.trim();
+  if (seeds.length < 2) {
+    const err = document.getElementById('watchlist-error');
+    err.textContent = 'Please add at least 2 films you loved.';
+    err.classList.add('show');
+    return;
+  }
+
+  const err = document.getElementById('watchlist-error');
+  const loading = document.getElementById('watchlist-loading');
+  const output = document.getElementById('watchlist-output');
+
+  err.classList.remove('show');
+  output.innerHTML = '';
+  loading.classList.add('show');
+
+  try {
+    const prompt = `You are CineScope, a film curator with encyclopedic knowledge of world cinema.
+
+The user loved these films: ${seeds.join(', ')}
+Their goal: "${goal || 'discover more great films with similar sensibilities'}"
+
+Based on their taste, curate a watchlist of exactly 10 films they haven't seen.
+
+Return ONLY valid JSON, no markdown:
+{
+  "list_title": "A Catchy Letterboxd-style List Name",
+  "list_description": "One evocative sentence describing the list's vibe.",
+  "movies": [
+    {
+      "title": "Film Title",
+      "year": 1985,
+      "rating": 4.5,
+      "reason": "One specific sentence explaining why it fits their taste and goal."
+    }
+  ]
+}
+
+Make thoughtful, specific choices. Include international films. Avoid obvious crowd-pleasers unless they truly fit.`;
+
+    const raw = await callClaude(prompt);
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    loading.classList.remove('show');
+
+    const header = document.createElement('div');
+    header.className = 'watchlist-header';
+    header.innerHTML = `
+      <div class="watchlist-list-title">${result.list_title}</div>
+      <div class="watchlist-list-desc">${result.list_description}</div>
+    `;
+    output.appendChild(header);
+
+    result.movies.forEach((film, i) => {
+      const item = document.createElement('div');
+      item.className = 'watchlist-item card-delay-' + Math.min(i + 1, 5);
+      item.innerHTML = `
+        <div class="watchlist-num">${i + 1}</div>
+        <div class="watchlist-thumb-ph">🎬</div>
+        <div class="watchlist-info">
+          <div class="watchlist-title">${film.title}</div>
+          <div class="watchlist-year">${film.year} · ⭐ ${film.rating}</div>
+          <div class="watchlist-reason">${film.reason}</div>
+        </div>
+      `;
+      output.appendChild(item);
+    });
+
+  } catch (e) {
+    loading.classList.remove('show');
+    err.textContent = 'Something went wrong: ' + e.message;
+    err.classList.add('show');
+  }
+}
+
+// Enter key for mood
+document.getElementById('mood-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); runMoodRecommender(); }
+});
+</script>
+</body>
+</html>
